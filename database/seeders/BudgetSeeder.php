@@ -7,20 +7,18 @@ use App\Models\User;
 use App\Models\Category;
 use Illuminate\Database\Seeder;
 use Carbon\Carbon;
-class BudgetSeeder extends Seeder
-{
-    public function run(): void
-    {
-        $category = Category::inRandomOrder()->first();
-        $user = User::inRandomOrder()->first();
-        if (!$category || !$user) return;
+use Illuminate\Support\Facades\DB;
 
-        Budget::create([
-            'amount' => 5000,
-            'user_id' => User::inRandomOrder()->first()->id,
-            'category_id' => Category::inRandomOrder()->first()->id,
-            'start_date' => Carbon::now()->subDays(30), // ✅ ใช้วันที่ย้อนหลัง 30 วัน
-            'end_date' => Carbon::now(), // ✅ ใช้วันที่ปัจจุบัน
+class BudgetSeeder extends Seeder {
+    public function run() {
+        DB::table('budgets')->insert([
+            ['amount' => 1000.00,
+            'start_date' => '2024-01-01',
+            'end_date' => '2024-01-31',
+            'user_id' => 1,
+            'category_id' => 2,
+            'created_at' => now(),
+            'updated_at' => now()],
         ]);
     }
 }
