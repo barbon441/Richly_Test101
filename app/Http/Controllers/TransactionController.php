@@ -20,6 +20,24 @@ class TransactionController extends Controller
     public function store(Request $request)
     {
         //
+        $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'amount' => 'required|numeric',
+            'transaction_type' => 'required|in:income,expense',
+            'description' => 'nullable|string',
+            'transaction_date' => 'required|date',
+        ]);
+
+        $transaction = Transaction::create([
+            'user_id' => auth()->id(),
+            'category_id' => $request->category_id,
+            'amount' => $request->transaction_type === 'expense' ? -$request->amount : $request->amount,
+            'transaction_type' => $request->transaction_type,
+            'description' => $request->description,
+            'transaction_date' => $request->transaction_date,
+        ]);
+
+        return response()->json($transaction, 201);
     }
 
     /**
