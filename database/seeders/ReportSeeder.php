@@ -2,14 +2,21 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Report;
+use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class ReportSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        Report::factory(10)->create(); // สร้างรายงาน 10 รายการ
+        $user = User::inRandomOrder()->first();
+        if (!$user) return;
+
+        Report::create([
+            'summary' => 'รายงานประจำเดือน',
+            'user_id' => $user->id,
+        ]);
     }
 }
 

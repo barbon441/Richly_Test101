@@ -2,14 +2,24 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Transaction;
+use App\Models\User;
+use App\Models\Category;
+use Illuminate\Database\Seeder;
 
 class TransactionSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        Transaction::factory(50)->create(); // สร้างธุรกรรม 50 รายการ
+        $category = Category::inRandomOrder()->first();
+        $user = User::inRandomOrder()->first();
+        if (!$category || !$user) return;
+
+        Transaction::create([
+            'amount' => 100,
+            'user_id' => $user->id,
+            'category_id' => $category->id,
+        ]);
     }
 }
 

@@ -2,14 +2,17 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class UserSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        User::factory(10)->create(); // สร้างผู้ใช้ 10 คน
+        if (User::count() == 0) {
+            User::factory(10)->create();
+        }
     }
 }
+
 
