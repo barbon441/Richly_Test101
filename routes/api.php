@@ -2,6 +2,8 @@
 
 use App\Http\ConttionController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TransactionController;
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/transactions', [TransactionController::class, 'index']);
