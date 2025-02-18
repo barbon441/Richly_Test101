@@ -58,17 +58,32 @@ const AddTransaction = () => {
 
         if (!amount || amount === "Error") return;
 
+        if (!csrfToken) {
+            console.error("❌ CSRF Token not found!");
+            return;
+        }
+
         const finalAmount = transactionType === "expense" ? `-${Math.abs(Number(amount))}` : `${Math.abs(Number(amount))}`;
         const transaction_date = new Date().toISOString().split("T")[0];
 
-        // ✅ ตรวจสอบค่าหมวดหมู่ที่เลือก
-        const selectedCategory = categories.find((cat) => cat.id === category);
-        const categoryName = selectedCategory ? selectedCategory.name : category; // ✅ ดึงชื่อหมวดหมู่จากรายการที่เลือก
-
-        if (!categoryName || typeof categoryName !== "string") {
-            console.error("❌ category_name ไม่ถูกต้อง:", categoryName);
-            return; // หยุดทำงานถ้า category_name ไม่ใช่ string
+        // ✅ ค้นหาหมวดหมู่ที่เลือก
+        const selectedCategory = categories.find(cat => cat.id === category);
+        if (!selectedCategory) {
+            console.error("❌ หมวดหมู่ไม่ถูกต้อง!");
+            return;
         }
+
+        const categoryId = selectedCategory.id;
+        const categoryName = selectedCategory.name;
+
+        console.log("📌 ข้อมูลที่ส่งไป:", {
+            category_id: categoryId,
+            category_name: categoryName,
+            amount: finalAmount,
+            transaction_type: transactionType,
+            description: note,
+            transaction_date,
+        });
 
         try {
             const response = await fetch("/transactions", {
@@ -76,10 +91,11 @@ const AddTransaction = () => {
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "application/json",
-                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "",
+                    "X-CSRF-TOKEN": csrfToken,
                 },
                 body: JSON.stringify({
-                    category_name: categoryName, // ✅ ส่งค่า category_name ที่เป็น string เท่านั้น
+                    category_id: categoryId, // ✅ ส่ง category_id
+                    category_name: categoryName, // ✅ ส่ง category_name
                     amount: finalAmount,
                     transaction_type: transactionType,
                     description: note,
@@ -91,14 +107,19 @@ const AddTransaction = () => {
             console.log("✅ Response:", result);
 
             if (response.ok) {
-                window.dispatchEvent(new Event("transactionAdded"));
+                window.dispatchEvent(new Event("transactionAdded")); // ✅ แจ้งให้ Dashboard โหลดข้อมูลใหม่
+                alert("✅ บันทึกธุรกรรมสำเร็จ!");
+                router.visit("/dashboard"); // ✅ กลับไปที่หน้า Dashboard
             } else {
                 console.error("❌ บันทึกธุรกรรมล้มเหลว:", result);
+                alert(`❌ เกิดข้อผิดพลาด: ${result.message}`);
             }
         } catch (error) {
             console.error("❌ Error:", error);
+            alert("❌ เกิดข้อผิดพลาดในการบันทึกธุรกรรม!");
         }
     };
+
 
     return (
         <div className="min-h-screen bg-amber-50">

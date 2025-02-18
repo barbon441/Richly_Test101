@@ -18,10 +18,10 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        return response()->json([
-            'transactions' => Transaction::orderBy('transaction_date', 'desc')->get()
-        ]);
+        $transactions = Transaction::orderBy('created_at', 'desc')->get();
+        return response()->json(['transactions' => $transactions], 200);
     }
+
 
 
     /**
@@ -33,6 +33,7 @@ class TransactionController extends Controller
             Log::info("📥 Data received:", $request->all());
 
             $validated = $request->validate([
+                'category_id' => 'required|integer|exists:categories,id',
                 'category_name' => 'required|string|max:255', // ✅ ต้องมีชื่อหมวดหมู่
                 'amount' => 'required|numeric',
                 'transaction_type' => 'required|in:income,expense',
@@ -62,6 +63,14 @@ class TransactionController extends Controller
                 'transaction_date' => $validated['transaction_date'],
             ]);
 
+            Log::info("📝 Budget Insert Data", [
+                'user_id' => Auth::id(),
+                'category_id' => $validated['category_id'],
+                'amount' => $validated['amount'],
+                'start_date' => now()->startOfMonth(),
+                'end_date' => now()->endOfMonth(),
+            ]);
+
             // ✅ **เช็คเฉพาะ `user_id` ว่ามีใน `budgets` หรือไม่**
             $budget = Budget::where('user_id', $userId)->first();
 
@@ -77,6 +86,7 @@ class TransactionController extends Controller
                 // ✅ ถ้าไม่มี `user_id` ใน `budgets` → สร้างใหม่
                 Budget::create([
                     'user_id' => $userId,
+                    'category_id' => $validated['category_id'], // ✅ ต้องมีค่า
                     'amount' => $validated['transaction_type'] === 'income'
                         ? abs($validated['amount'])
                         : -abs($validated['amount']),

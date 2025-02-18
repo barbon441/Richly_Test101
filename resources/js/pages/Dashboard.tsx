@@ -22,17 +22,27 @@ export default function Dashboard() {
     const fetchTransactions = async () => {
         console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
         try {
-            const response = await fetch("/transactions");
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const response = await fetch("/api/transactions");
 
-            const data = await response.json();
+            // ✅ เช็ค response ก่อนแปลง JSON
+            console.log("📌 Response:", response);
+
+            if (!response.ok) {
+                throw new Error(`❌ API Error: ${response.status} - ${response.statusText}`);
+            }
+
+            let data = await response.json();
             console.log("✅ รายการธุรกรรมที่โหลดมา:", data);
 
-            setTransactions(data.transactions || []);
+            // ✅ เรียงข้อมูลจากใหม่ -> เก่า
+            data.transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            setTransactions(data.transactions);
         } catch (error) {
             console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
         }
     };
+
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
