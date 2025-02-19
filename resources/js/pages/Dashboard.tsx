@@ -40,10 +40,11 @@ export default function Dashboard() {
                     amount: Number(t.amount) || 0,
                     date: transactionDate ? transactionDate.toISOString().split("T")[0] : "Invalid Date",
                     timestamp: transactionDate ? transactionDate.getTime() : 0,
-                    category: t.category_name || "ไม่ระบุหมวดหมู่",
-                    icon: t.category_icon || "❓",
+                    category: t.category || "ไม่ระบุหมวดหมู่",
+                    icon: t.icon || "❓", // ✅ ใช้ `icon` จาก API
                 };
             }).sort((a: Transaction, b: Transaction) => b.timestamp - a.timestamp);
+
 
             console.log("🔢 Transactions (หลังจากแปลงค่า):", transactions); // ✅ Debug ดูค่า
 

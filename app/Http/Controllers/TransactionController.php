@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Log; // ✅ Import ให้ถูกต้อง
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use App\Models\Transaction;
 use App\Models\Budget;
-use App\Models\Report;
 use App\Models\Category;
 use Illuminate\Support\Facades\Auth;
-use Exception;
 
 class TransactionController extends Controller
 {
@@ -18,14 +16,28 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        return response()->json([
-            'transactions' => Transaction::orderBy('transaction_date', 'desc')->get()
-        ]);
+        $transactions = Transaction::with('category') // ✅ ดึงข้อมูลจากตาราง `categories`
+            ->orderBy('transaction_date', 'desc')
+            ->get()
+            ->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'category' => $transaction->category->name ?? 'ไม่ระบุหมวดหมู่',
+                    'icon' => $transaction->category->icon ?? '❓', // ✅ ใช้ icon จาก `categories`
+                    'description' => $transaction->description ?? 'ไม่มีรายละเอียด',
+                    'amount' => $transaction->amount,
+                    'transaction_type' => $transaction->transaction_type,
+                    'date' => $transaction->transaction_date,
+                    'created_at' => $transaction->created_at,
+                ];
+            });
+
+        return response()->json(['transactions' => $transactions]);
     }
 
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created transaction.
      */
     public function store(Request $request)
     {
@@ -48,13 +60,13 @@ class TransactionController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
             }
 
-            // ✅ **เช็คว่าหมวดหมู่นี้มีอยู่แล้วหรือไม่ (แยกตาม `user_id`)**
+            // ✅ **ตรวจสอบว่าหมวดหมู่มีอยู่แล้วหรือไม่ (แยกตาม `user_id`)**
             $category = Category::where('user_id', $userId)
                 ->where('name', trim($validated['category_name']))
                 ->where('type', $validated['transaction_type'])
                 ->first();
 
-            // ✅ ถ้าไม่มี ให้สร้างใหม่
+            // ✅ ถ้าไม่มี ให้สร้างใหม่ พร้อม `icon`
             if (!$category) {
                 $category = Category::create([
                     'user_id' => $userId,
@@ -62,14 +74,20 @@ class TransactionController extends Controller
                     'type' => $validated['transaction_type'],
                     'icon' => $validated['category_icon'],
                 ]);
+            } else {
+                // ✅ ถ้า `Category` มีอยู่แล้ว แต่ไม่มี `icon` → เพิ่ม `icon` ให้
+                if (!$category->icon) {
+                    $category->icon = $validated['category_icon'];
+                    $category->save();
+                }
             }
 
             // ✅ **บันทึกธุรกรรมลงตาราง transactions**
             $transaction = Transaction::create([
                 'user_id' => $userId,
-                'category_id' => $category->id, // ✅ ใช้ category_id ที่ถูกต้อง
+                'category_id' => $category->id,
                 'category_name' => $category->name,
-                'category_icon' => $category->icon,
+                'category_icon' => $category->icon, // ✅ ใช้ `icon` จาก `Category`
                 'amount' => $validated['amount'],
                 'transaction_type' => $validated['transaction_type'],
                 'description' => $validated['description'],
@@ -91,9 +109,9 @@ class TransactionController extends Controller
             if ($budget) {
                 // ✅ ถ้ามีงบประมาณ → อัปเดตยอดเงิน
                 if ($validated['transaction_type'] === 'income') {
-                    $budget->amount += abs($validated['amount']); // บวกเงินเข้า
+                    $budget->amount += abs($validated['amount']);
                 } else {
-                    $budget->amount -= abs($validated['amount']); // ลบเงินออก
+                    $budget->amount -= abs($validated['amount']);
                 }
                 $budget->save();
             } else {
@@ -125,8 +143,6 @@ class TransactionController extends Controller
             ], 500);
         }
     }
-
-
 
     /**
      * Display the specified resource.
