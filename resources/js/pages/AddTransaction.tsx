@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { router } from "@inertiajs/react";
+import axios from "axios";
 
 const expenseCategories = [
     { id: 1, name: "อาหาร", icon: "🍔" },
@@ -23,6 +24,8 @@ const AddTransaction = () => {
     const [category, setCategory] = useState(expenseCategories[0].id);
 
     const categories = transactionType === "expense" ? expenseCategories : incomeCategories;
+
+
 
     const handleCalculate = () => {
         try {
@@ -52,74 +55,47 @@ const AddTransaction = () => {
     };
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-
+    console.log("🔹 CSRF Token:", csrfToken);
     const handleSubmit = async () => {
         console.log("🔹 กำลังส่งข้อมูลธุรกรรม...");
 
         if (!amount || amount === "Error") return;
 
-        if (!csrfToken) {
-            console.error("❌ CSRF Token not found!");
-            return;
-        }
-
         const finalAmount = transactionType === "expense" ? `-${Math.abs(Number(amount))}` : `${Math.abs(Number(amount))}`;
         const transaction_date = new Date().toISOString().split("T")[0];
 
-        // ✅ ค้นหาหมวดหมู่ที่เลือก
-        const selectedCategory = categories.find(cat => cat.id === category);
+        const selectedCategory = categories.find((cat) => cat.id === category);
+        const categoryName = selectedCategory ? selectedCategory.name : null;
+        const categoryIcon = selectedCategory ? selectedCategory.icon : "❓";
+
         if (!selectedCategory) {
-            console.error("❌ หมวดหมู่ไม่ถูกต้อง!");
+            console.error("❌ ไม่พบ category ที่เลือก!");
             return;
         }
 
-        const categoryId = selectedCategory.id;
-        const categoryName = selectedCategory.name;
-
-        console.log("📌 ข้อมูลที่ส่งไป:", {
-            category_id: categoryId,
-            category_name: categoryName,
-            amount: finalAmount,
-            transaction_type: transactionType,
-            description: note,
-            transaction_date,
-        });
-
         try {
-            const response = await fetch("/transactions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "X-CSRF-TOKEN": csrfToken,
-                },
-                body: JSON.stringify({
-                    category_id: categoryId, // ✅ ส่ง category_id
-                    category_name: categoryName, // ✅ ส่ง category_name
-                    amount: finalAmount,
-                    transaction_type: transactionType,
-                    description: note,
-                    transaction_date,
-                }),
+            const response = await axios.post("/transactions", {
+                category_id: category,
+                category_name: categoryName,
+                category_icon: categoryIcon,
+                amount: finalAmount,
+                transaction_type: transactionType,
+                description: note,
+                transaction_date,
             });
 
-            const result = await response.json();
-            console.log("✅ Response:", result);
+            console.log("✅ Response:", response.data);
 
-            if (response.ok) {
-                window.dispatchEvent(new Event("transactionAdded")); // ✅ แจ้งให้ Dashboard โหลดข้อมูลใหม่
-                alert("✅ บันทึกธุรกรรมสำเร็จ!");
-                router.visit("/dashboard"); // ✅ กลับไปที่หน้า Dashboard
+            if (response.status === 200) {
+                window.dispatchEvent(new Event("transactionAdded"));
+                router.visit('/dashboard');
             } else {
-                console.error("❌ บันทึกธุรกรรมล้มเหลว:", result);
-                alert(`❌ เกิดข้อผิดพลาด: ${result.message}`);
+                console.error("❌ บันทึกธุรกรรมล้มเหลว:", response.data);
             }
         } catch (error) {
             console.error("❌ Error:", error);
-            alert("❌ เกิดข้อผิดพลาดในการบันทึกธุรกรรม!");
         }
     };
-
 
     return (
         <div className="min-h-screen bg-amber-50">

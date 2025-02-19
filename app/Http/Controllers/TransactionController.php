@@ -18,10 +18,10 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        $transactions = Transaction::orderBy('created_at', 'desc')->get();
-        return response()->json(['transactions' => $transactions], 200);
+        return response()->json([
+            'transactions' => Transaction::orderBy('transaction_date', 'desc')->get()
+        ]);
     }
-
 
 
     /**

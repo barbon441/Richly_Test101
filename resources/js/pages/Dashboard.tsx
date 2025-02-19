@@ -10,6 +10,8 @@ interface Transaction {
     description: string;
     amount: number;
     date: string;
+    created_at?: string;
+    timestamp: number;
 }
 
 export default function Dashboard() {
@@ -22,27 +24,51 @@ export default function Dashboard() {
     const fetchTransactions = async () => {
         console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
         try {
-            const response = await fetch("/api/transactions");
+            const response = await fetch("/transactions");
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-            // ✅ เช็ค response ก่อนแปลง JSON
-            console.log("📌 Response:", response);
-
-            if (!response.ok) {
-                throw new Error(`❌ API Error: ${response.status} - ${response.statusText}`);
-            }
-
-            let data = await response.json();
+            const data = await response.json();
             console.log("✅ รายการธุรกรรมที่โหลดมา:", data);
 
-            // ✅ เรียงข้อมูลจากใหม่ -> เก่า
-            data.transactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            const transactions = (data.transactions || []).map((t: Transaction) => {
+                let transactionDate = t.created_at && !isNaN(Date.parse(t.created_at))
+                    ? new Date(t.created_at)
+                    : (t.date && !isNaN(Date.parse(t.date)) ? new Date(t.date) : null);
 
-            setTransactions(data.transactions);
+                return {
+                    ...t,
+                    amount: Number(t.amount) || 0,
+                    date: transactionDate ? transactionDate.toISOString().split("T")[0] : "Invalid Date",
+                    timestamp: transactionDate ? transactionDate.getTime() : 0,
+                    icon: t.category_icon || "❓", // ✅ ใช้ icon จาก API ถ้ามี
+                };
+            }).sort((a: Transaction, b: Transaction) => b.timestamp - a.timestamp);
+
+            console.log("🔢 Transactions (หลังจากแปลงค่า):", transactions); // ✅ Debug ดูค่า
+
+            setTransactions(transactions);
+
+            // ✅ คำนวณรายรับ
+            const income = transactions
+                .filter((t: Transaction) => t.amount > 0)
+                .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+
+            // ✅ คำนวณรายจ่าย
+            const expense = transactions
+                .filter((t: Transaction) => t.amount < 0)
+                .reduce((sum: number, t: Transaction) => sum + Math.abs(t.amount), 0);
+
+            console.log("💰 รายรับ:", income, "💸 รายจ่าย:", expense); // ✅ Debug ดูค่า
+
+            // ✅ อัปเดตค่าตัวแปร
+            setTotalIncome(income);
+            setTotalExpense(expense);
+            setTotalBalance(income - expense);
+
         } catch (error) {
             console.error("❌ เกิดข้อผิดพลาดในการโหลดธุรกรรม:", error);
         }
     };
-
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
@@ -68,23 +94,28 @@ export default function Dashboard() {
             {/* 🔹 เปลี่ยนสีพื้นหลังของหน้า */}
             <div className="min-h-screen bg-amber-100 p-4">
 
-                {/* 🔹 ส่วนสรุปยอดรายรับ-รายจ่าย */}
-                <div className="bg-white p-4 mx-4 my-4 rounded-lg shadow-lg">
-                    <div className="flex justify-between text-lg font-semibold">
-                        <span className="text-gray-700">ยอดทั้งหมด</span>
-                        <span className={totalBalance >= 0 ? "text-green-500" : "text-red-500"}>
-                            {totalBalance >= 0 ? `+฿${totalBalance}` : `-฿${Math.abs(totalBalance)}`}
-                        </span>
+            <div className="flex flex-col items-center justify-center text-lg font-semibold">
+                {/* ✅ ฝั่งขวา: รายได้ + ค่าใช้จ่าย */}
+                <div className="flex justify-between w-full px-8">
+                    <div className="text-left">
+                        <p className="text-gray-500 text-sm">รายได้</p>
+                        <p className="text-green-500 font-bold text-xl">+฿{totalIncome.toLocaleString()}</p>
                     </div>
-                    <div className="flex justify-between text-lg">
-                        <span className="text-green-500">+฿{totalIncome}</span>
-                        <span className="text-red-500">-฿{Math.abs(totalExpense)}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-500 text-sm">
-                        <span>รายได้</span>
-                        <span>ค่าใช้จ่าย</span>
+                    <div className="text-right">
+                        <p className="text-gray-500 text-sm">ค่าใช้จ่าย</p>
+                        <p className="text-red-500 font-bold text-xl">-฿{Math.abs(totalExpense).toLocaleString()}</p>
                     </div>
                 </div>
+
+                {/* ✅ ยอดรวมปัจจุบัน ให้อยู่ตรงกลาง */}
+                <div className="mt-4 text-center w-full">
+                    <p className="text-gray-700 text-sm">ยอดรวมปัจจุบัน</p>
+                    <p className={totalBalance >= 0 ? "text-green-500 text-3xl font-bold" : "text-red-500 text-3xl font-bold"}>
+                        {totalBalance >= 0 ? `+฿${totalBalance.toLocaleString()}` : `-฿${Math.abs(totalBalance).toLocaleString()}`}
+                    </p>
+                </div>
+            </div>
+
 
                 {/* 🔹 รายการธุรกรรมล่าสุด */}
                 <div className="bg-white mx-4 my-4 p-4 rounded-lg shadow-lg">
