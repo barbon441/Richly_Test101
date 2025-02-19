@@ -40,7 +40,8 @@ export default function Dashboard() {
                     amount: Number(t.amount) || 0,
                     date: transactionDate ? transactionDate.toISOString().split("T")[0] : "Invalid Date",
                     timestamp: transactionDate ? transactionDate.getTime() : 0,
-                    icon: t.category_icon || "❓", // ✅ ใช้ icon จาก API ถ้ามี
+                    category: t.category_name || "ไม่ระบุหมวดหมู่",
+                    icon: t.category_icon || "❓",
                 };
             }).sort((a: Transaction, b: Transaction) => b.timestamp - a.timestamp);
 
@@ -140,20 +141,28 @@ export default function Dashboard() {
                                 }
 
                                 // 🟡 แสดงรายการธุรกรรม
-                                acc.push(
-                                    <div key={transaction.id} className="flex justify-between items-center py-2 border-b">
-                                        <div className="flex items-center">
-                                            <span className="text-xl">{transaction.icon || "💰"}</span>
-                                            <div className="ml-3">
-                                                <p className="font-semibold text-gray-800">{transaction.category || "หมวดหมู่"}</p>
-                                                <p className="text-gray-500 text-sm">{transaction.description || "ไม่มีรายละเอียด"}</p>
-                                            </div>
+                            acc.push(
+                                <div key={transaction.id} className="flex justify-between items-center py-2 border-b">
+                                    <div className="flex items-center">
+                                        {/* ✅ แสดงไอคอนของหมวดหมู่ ถ้าไม่มีให้ใช้ค่าเริ่มต้น */}
+                                        <span className="text-2xl">{transaction.icon ? transaction.icon : "❓"}</span>
+
+                                        <div className="ml-3">
+                                            {/* ✅ แสดงชื่อหมวดหมู่ ถ้าไม่มีให้ใช้ค่าเริ่มต้น */}
+                                            <p className="font-semibold text-gray-800">{transaction.category ? transaction.category : "ไม่ระบุหมวดหมู่"}</p>
+
+                                            {/* ✅ แสดงรายละเอียด ถ้าไม่มีให้ใช้ค่าเริ่มต้น */}
+                                            <p className="text-gray-500 text-sm">{transaction.description ? transaction.description : "ไม่มีรายละเอียด"}</p>
                                         </div>
-                                        <span className={`text-${transaction.amount > 0 ? "green" : "red"}-500`}>
-                                            {transaction.amount > 0 ? `+฿${Number(transaction.amount).toFixed(2)}` : `-฿${Math.abs(Number(transaction.amount)).toFixed(2)}`}
-                                        </span>
                                     </div>
-                                );
+
+                                    {/* ✅ แสดงจำนวนเงินเป็นสีแดงถ้าเป็นรายจ่าย และสีเขียวถ้าเป็นรายรับ */}
+                                    <span className={`font-bold ${transaction.amount > 0 ? "text-green-500" : "text-red-500"}`}>
+                                        {transaction.amount > 0 ? `+฿${Number(transaction.amount).toFixed(2)}` : `-฿${Math.abs(Number(transaction.amount)).toFixed(2)}`}
+                                    </span>
+                                </div>
+                            );
+
 
                                 return acc;
                             }, [])

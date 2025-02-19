@@ -72,7 +72,15 @@ const AddTransaction = () => {
             console.error("❌ ไม่พบ category ที่เลือก!");
             return;
         }
-
+        console.log("📤 กำลังส่งข้อมูล:", {
+            category_id: category,
+            category_name: categoryName,
+            category_icon: categoryIcon,
+            amount: finalAmount,
+            transaction_type: transactionType,
+            description: note,
+            transaction_date,
+        });
         try {
             const response = await axios.post("/transactions", {
                 category_id: category,

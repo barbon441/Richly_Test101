@@ -33,45 +33,59 @@ class TransactionController extends Controller
             Log::info("📥 Data received:", $request->all());
 
             $validated = $request->validate([
-                'category_id' => 'required|integer|exists:categories,id',
-                'category_name' => 'required|string|max:255', // ✅ ต้องมีชื่อหมวดหมู่
+                'category_id' => 'sometimes|integer',
+                'category_name' => 'required|string',
+                'category_icon' => 'required|string',
                 'amount' => 'required|numeric',
-                'transaction_type' => 'required|in:income,expense',
+                'transaction_type' => 'required|string',
                 'description' => 'nullable|string',
                 'transaction_date' => 'required|date',
             ]);
 
+            // ✅ รับ `user_id` จาก Auth
             $userId = Auth::id();
             if (!$userId) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
             }
 
-            // ✅ **สร้างหมวดหมู่ใหม่เสมอ**
-            $category = Category::create([
-                'user_id' => $userId,
-                'name' => trim($validated['category_name']),
-                'type' => $validated['transaction_type'],
-            ]);
+            // ✅ **เช็คว่าหมวดหมู่นี้มีอยู่แล้วหรือไม่ (แยกตาม `user_id`)**
+            $category = Category::where('user_id', $userId)
+                ->where('name', trim($validated['category_name']))
+                ->where('type', $validated['transaction_type'])
+                ->first();
 
-            // ✅ บันทึกธุรกรรมลงตาราง transactions
+            // ✅ ถ้าไม่มี ให้สร้างใหม่
+            if (!$category) {
+                $category = Category::create([
+                    'user_id' => $userId,
+                    'name' => trim($validated['category_name']),
+                    'type' => $validated['transaction_type'],
+                    'icon' => $validated['category_icon'],
+                ]);
+            }
+
+            // ✅ **บันทึกธุรกรรมลงตาราง transactions**
             $transaction = Transaction::create([
                 'user_id' => $userId,
-                'category_id' => $category->id,
+                'category_id' => $category->id, // ✅ ใช้ category_id ที่ถูกต้อง
+                'category_name' => $category->name,
+                'category_icon' => $category->icon,
                 'amount' => $validated['amount'],
                 'transaction_type' => $validated['transaction_type'],
                 'description' => $validated['description'],
                 'transaction_date' => $validated['transaction_date'],
             ]);
 
-            Log::info("📝 Budget Insert Data", [
-                'user_id' => Auth::id(),
-                'category_id' => $validated['category_id'],
+            // ✅ **อัปเดตงบประมาณ**
+            Log::info("📝 Budget Update Data", [
+                'user_id' => $userId,
+                'category_id' => $category->id,
                 'amount' => $validated['amount'],
                 'start_date' => now()->startOfMonth(),
                 'end_date' => now()->endOfMonth(),
             ]);
 
-            // ✅ **เช็คเฉพาะ `user_id` ว่ามีใน `budgets` หรือไม่**
+            // ✅ **เช็คว่ามีงบประมาณของ user นี้หรือไม่**
             $budget = Budget::where('user_id', $userId)->first();
 
             if ($budget) {
@@ -84,9 +98,9 @@ class TransactionController extends Controller
                 $budget->save();
             } else {
                 // ✅ ถ้าไม่มี `user_id` ใน `budgets` → สร้างใหม่
-                Budget::create([
+                $budget = Budget::create([
                     'user_id' => $userId,
-                    'category_id' => $validated['category_id'], // ✅ ต้องมีค่า
+                    'category_id' => $category->id,
                     'amount' => $validated['transaction_type'] === 'income'
                         ? abs($validated['amount'])
                         : -abs($validated['amount']),
@@ -99,7 +113,7 @@ class TransactionController extends Controller
                 'success' => true,
                 'transaction' => $transaction,
                 'category' => $category,
-                'budget' => $budget ?? 'Created new budget',
+                'budget' => $budget,
             ]);
 
         } catch (\Exception $e) {
@@ -111,6 +125,8 @@ class TransactionController extends Controller
             ], 500);
         }
     }
+
+
 
     /**
      * Display the specified resource.
