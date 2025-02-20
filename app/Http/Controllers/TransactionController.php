@@ -44,6 +44,7 @@ class TransactionController extends Controller
         try {
             Log::info("📥 Data received:", $request->all());
 
+            // ✅ ตรวจสอบข้อมูลที่รับเข้ามา
             $validated = $request->validate([
                 'category_id' => 'sometimes|integer',
                 'category_name' => 'required|string',
@@ -60,62 +61,53 @@ class TransactionController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
             }
 
-            // ✅ **ตรวจสอบว่าหมวดหมู่มีอยู่แล้วหรือไม่ (แยกตาม `user_id`)**
+            // ✅ ตรวจสอบว่าหมวดหมู่มีอยู่หรือไม่
             $category = Category::where('user_id', $userId)
                 ->where('name', trim($validated['category_name']))
                 ->where('type', $validated['transaction_type'])
                 ->first();
 
-            // ✅ ถ้าไม่มี ให้สร้างใหม่ พร้อม `icon`
             if (!$category) {
+                // ✅ ถ้าหมวดหมู่ไม่มี → สร้างใหม่ พร้อม `icon`
                 $category = Category::create([
                     'user_id' => $userId,
                     'name' => trim($validated['category_name']),
                     'type' => $validated['transaction_type'],
                     'icon' => $validated['category_icon'],
                 ]);
-            } else {
-                // ✅ ถ้า `Category` มีอยู่แล้ว แต่ไม่มี `icon` → เพิ่ม `icon` ให้
-                if (!$category->icon) {
-                    $category->icon = $validated['category_icon'];
-                    $category->save();
-                }
+                Log::info("🆕 Created new category:", $category->toArray());
+            } elseif (!$category->icon) {
+                // ✅ ถ้าหมวดหมู่มีอยู่แล้ว แต่ไม่มี `icon` → อัปเดต `icon`
+                $category->icon = $validated['category_icon'];
+                $category->save();
+                Log::info("🔄 Updated category icon:", $category->toArray());
             }
 
-            // ✅ **บันทึกธุรกรรมลงตาราง transactions**
+            // ✅ บันทึกธุรกรรมใหม่
             $transaction = Transaction::create([
                 'user_id' => $userId,
                 'category_id' => $category->id,
                 'category_name' => $category->name,
-                'category_icon' => $category->icon, // ✅ ใช้ `icon` จาก `Category`
+                'category_icon' => $category->icon, // ✅ ใช้ `icon` จากหมวดหมู่
                 'amount' => $validated['amount'],
                 'transaction_type' => $validated['transaction_type'],
                 'description' => $validated['description'],
                 'transaction_date' => $validated['transaction_date'],
             ]);
+            Log::info("✅ Created new transaction:", $transaction->toArray());
 
-            // ✅ **อัปเดตงบประมาณ**
-            Log::info("📝 Budget Update Data", [
-                'user_id' => $userId,
-                'category_id' => $category->id,
-                'amount' => $validated['amount'],
-                'start_date' => now()->startOfMonth(),
-                'end_date' => now()->endOfMonth(),
-            ]);
-
-            // ✅ **เช็คว่ามีงบประมาณของ user นี้หรือไม่**
+            // ✅ จัดการงบประมาณ (`budget`)
             $budget = Budget::where('user_id', $userId)->first();
 
             if ($budget) {
-                // ✅ ถ้ามีงบประมาณ → อัปเดตยอดเงิน
-                if ($validated['transaction_type'] === 'income') {
-                    $budget->amount += abs($validated['amount']);
-                } else {
-                    $budget->amount -= abs($validated['amount']);
-                }
+                // ✅ ถ้ามีงบประมาณอยู่แล้ว → อัปเดตยอดเงิน
+                $budget->amount += ($validated['transaction_type'] === 'income')
+                    ? abs($validated['amount'])
+                    : -abs($validated['amount']);
                 $budget->save();
+                Log::info("🔄 Updated existing budget:", $budget->toArray());
             } else {
-                // ✅ ถ้าไม่มี `user_id` ใน `budgets` → สร้างใหม่
+                // ✅ ถ้าไม่มีงบประมาณ → สร้างใหม่
                 $budget = Budget::create([
                     'user_id' => $userId,
                     'category_id' => $category->id,
@@ -125,6 +117,7 @@ class TransactionController extends Controller
                     'start_date' => now()->startOfMonth(),
                     'end_date' => now()->endOfMonth(),
                 ]);
+                Log::info("🆕 Created new budget:", $budget->toArray());
             }
 
             return response()->json([
@@ -143,6 +136,7 @@ class TransactionController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Display the specified resource.
