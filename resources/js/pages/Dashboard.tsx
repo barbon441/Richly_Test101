@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link,usePage} from '@inertiajs/react';
+
 
 // 🟡 กำหนด Type ของ Transaction
 interface Transaction {
@@ -15,6 +16,8 @@ interface Transaction {
 }
 
 export default function Dashboard() {
+    const {auth} = usePage().props;
+    const userId = auth.user.id;
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [totalIncome, setTotalIncome] = useState(0);
     const [totalExpense, setTotalExpense] = useState(0);
@@ -24,7 +27,7 @@ export default function Dashboard() {
     const fetchTransactions = async () => {
         console.log("🔄 กำลังโหลดข้อมูลธุรกรรม...");
         try {
-            const response = await fetch("/transactions");
+            const response = await fetch("/transactions?user_id=${userId}");
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
@@ -74,11 +77,13 @@ export default function Dashboard() {
 
     // ✅ โหลดข้อมูลเมื่อเปิดหน้า และอัปเดตเมื่อมีการเพิ่มธุรกรรม
     useEffect(() => {
-        fetchTransactions();
+        if (userId) { // ✅ โหลดเมื่อ userId มีค่า
+            fetchTransactions();
+            window.addEventListener("transactionAdded", fetchTransactions);
+            return () => window.removeEventListener("transactionAdded", fetchTransactions);
+        }
+    }, [userId]); // ✅ โหลดใหม่เมื่อ userId เปลี่ยน
 
-        window.addEventListener("transactionAdded", fetchTransactions);
-        return () => window.removeEventListener("transactionAdded", fetchTransactions);
-    }, []);
 
     return (
         <AuthenticatedLayout>
@@ -98,23 +103,26 @@ export default function Dashboard() {
 
             <div className="flex flex-col items-center justify-center text-lg font-semibold">
                 {/* ✅ ฝั่งขวา: รายได้ + ค่าใช้จ่าย */}
-                <div className="flex justify-between w-full px-8">
-                    <div className="text-left">
-                        <p className="text-gray-500 text-sm">รายได้</p>
-                        <p className="text-green-500 font-bold text-xl">+฿{totalIncome.toLocaleString()}</p>
+                <div className="bg-white rounded-lg shadow-lg p-4 w-full mx-4">
+                    <div className="flex justify-between w-full px-8">
+                        <div className="text-left">
+                            <p className="text-gray-500 text-sm">รายได้</p>
+                            <p className="text-green-500 font-bold text-xl">+฿{totalIncome.toLocaleString()}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-gray-500 text-sm">ค่าใช้จ่าย</p>
+                            <p className="text-red-500 font-bold text-xl">-฿{Math.abs(totalExpense).toLocaleString()}</p>
+                        </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-gray-500 text-sm">ค่าใช้จ่าย</p>
-                        <p className="text-red-500 font-bold text-xl">-฿{Math.abs(totalExpense).toLocaleString()}</p>
-                    </div>
-                </div>
 
-                {/* ✅ ยอดรวมปัจจุบัน ให้อยู่ตรงกลาง */}
-                <div className="mt-4 text-center w-full">
-                    <p className="text-gray-700 text-sm">ยอดรวมปัจจุบัน</p>
-                    <p className={totalBalance >= 0 ? "text-green-500 text-3xl font-bold" : "text-red-500 text-3xl font-bold"}>
-                        {totalBalance >= 0 ? `+฿${totalBalance.toLocaleString()}` : `-฿${Math.abs(totalBalance).toLocaleString()}`}
-                    </p>
+
+                    {/* ✅ ยอดรวมปัจจุบัน ให้อยู่ตรงกลาง */}
+                    <div className="mt-4 text-center w-full">
+                        <p className="text-gray-700 text-sm">ยอดรวมปัจจุบัน</p>
+                        <p className={totalBalance >= 0 ? "text-green-500 text-3xl font-bold" : "text-red-500 text-3xl font-bold"}>
+                            {totalBalance >= 0 ? `+฿${totalBalance.toLocaleString()}` : `-฿${Math.abs(totalBalance).toLocaleString()}`}
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -154,6 +162,9 @@ export default function Dashboard() {
 
                                             {/* ✅ แสดงรายละเอียด ถ้าไม่มีให้ใช้ค่าเริ่มต้น */}
                                             <p className="text-gray-500 text-sm">{transaction.description ? transaction.description : "ไม่มีรายละเอียด"}</p>
+                                            <p className="text-gray-400 text-xs">
+                                            🕒 {transaction.created_at ? new Date(transaction.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "ไม่ระบุเวลา"}
+                                        </p> {/* ✅ เพิ่มเวลา */}
                                         </div>
                                     </div>
 

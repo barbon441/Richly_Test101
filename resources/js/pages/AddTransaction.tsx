@@ -10,7 +10,7 @@ const expenseCategories = [
 ];
 
 const incomeCategories = [
-    { id: 1, name: "เงินเดือน", icon: "💰" },
+    { id: 1, name: "เงินเดือน", icon: "💵" },
     { id: 2, name: "โบนัส", icon: "🎉" },
     { id: 3, name: "ธุรกิจ", icon: "🏢" },
     { id: 4, name: "ครอบครัว", icon: "👨‍👩‍👧‍👦" },
@@ -67,7 +67,15 @@ const AddTransaction = () => {
         const selectedCategory = categories.find((cat) => cat.id === category);
         const categoryName = selectedCategory ? selectedCategory.name : null;
         const categoryIcon = selectedCategory ? selectedCategory.icon : "❓";
-
+        console.log("📤 Sending Data:", {
+            category_id: category,
+            category_name: selectedCategory ? selectedCategory.name : "",
+            category_icon: categoryIcon, //✅ เช็คว่า icon ถูกส่งไปหรือไม่
+            amount: finalAmount,
+            transaction_type: transactionType,
+            description: note,
+            transaction_date,
+        });
         if (!selectedCategory) {
             console.error("❌ ไม่พบ category ที่เลือก!");
             return;
@@ -95,13 +103,23 @@ const AddTransaction = () => {
             console.log("✅ Response:", response.data);
 
             if (response.status === 200) {
+                const newCategory = response.data.category;  // ✅ รับค่าหมวดหมู่ที่ถูกต้องกลับมา
+                console.log("✅ หมวดหมู่ที่ใช้:", newCategory);
+
+                // ✅ อัปเดตค่าไอคอนของหมวดหมู่ให้ตรงกับที่เซิร์ฟเวอร์บันทึก
+                categories.forEach((cat) => {
+                    if (cat.name === newCategory.name) {
+                        cat.icon = newCategory.icon;
+                    }
+                });
+
+                // ✅ รีเฟรชหน้า Dashboard ทันที
                 window.dispatchEvent(new Event("transactionAdded"));
                 router.visit('/dashboard');
-            } else {
-                console.error("❌ บันทึกธุรกรรมล้มเหลว:", response.data);
             }
         } catch (error) {
             console.error("❌ Error:", error);
+            
         }
     };
 
@@ -109,9 +127,8 @@ const AddTransaction = () => {
         <div className="min-h-screen bg-amber-50">
             {/* 🔹 Navbar ด้านบน */}
             <div className="bg-amber-400 text-white p-4 flex justify-between items-center shadow-md">
-                <button onClick={() => history.back()} className="text-xl">❌</button>
+                <button onClick={() => history.back()} className="text-xl">↩️</button>
                 <h2 className="text-lg font-semibold">{transactionType === "expense" ? "เพิ่มรายจ่าย" : "เพิ่มรายรับ"}</h2>
-                <button onClick={handleSubmit} className="text-xl">✔️</button>
             </div>
 
             {/* 🔹 ปุ่มเลือก รายจ่าย/รายรับ */}
@@ -157,7 +174,7 @@ const AddTransaction = () => {
             <div className="bg-white p-4 rounded-lg shadow-lg mx-4 mt-4">
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">รายละเอียดธุรกรรม</h3>
                 <div className="grid grid-cols-2 gap-4">
-                    <input type="text" value={amount} readOnly className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg" placeholder="฿0.00" />
+                    <input type="text" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-4 text-3xl text-center bg-amber-100 rounded-lg" placeholder="฿0.00" />
                     <input type="text" value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-4 text-lg bg-amber-100 rounded-lg" placeholder="รายละเอียดเพิ่มเติม..." />
                 </div>
             </div>
